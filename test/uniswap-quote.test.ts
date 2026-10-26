@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { STOCK_TOKEN_DECIMALS } from "../src/config/constants.js";
 import { VERIFIED_USDG } from "../src/config/constants.js";
+import { loadConfig } from "../src/config/env.js";
 import {
+  createUniswapAdapter,
   executablePriceFromAmounts,
   extractQuoteAmounts,
   gasUsdFromQuote,
@@ -104,5 +106,30 @@ describe("Uniswap quote parsing", () => {
     expect(quote.executable.source).toBe("dex_uniswap");
     expect(quote.executable.valueUsd).toBe("100");
     expect(quote.estimatedGasUsd).toBe("0.04");
+  });
+
+  it("asks the Trading API for MAX_SLIPPAGE_BPS, so the quoted slippage passes the risk cap", async () => {
+    const config = loadConfig({ SYMBOLS: "AAPL", MAX_SLIPPAGE_BPS: "30", UNISWAP_API_KEY: "test-key" });
+    let requested: unknown;
+    // The Trading API echoes the requested tolerance back as `quote.slippage` (percent).
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      requested = JSON.parse(String(init?.body)).slippageTolerance;
+      return new Response(
+        JSON.stringify({
+          routing: "CLASSIC",
+          quote: {
+            input: { amount: "200000000" },
+            output: { amount: "2000000000000000000" },
+            gasFeeUSD: "0.04",
+            slippage: requested,
+          },
+        }),
+        { status: 200 },
+      );
+    };
+    const quote = await createUniswapAdapter(config, fetchImpl).quote(request);
+    expect(requested).toBe(0.3);
+    expect(quote.estimatedSlippageBps).toBe(30);
+    expect(quote.estimatedSlippageBps).toBeLessThanOrEqual(config.risk.maxSlippageBps);
   });
 });

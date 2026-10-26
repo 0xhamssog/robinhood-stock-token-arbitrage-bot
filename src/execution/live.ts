@@ -131,6 +131,7 @@ export async function executeLiveSwap(args: {
     const fresh = await quoteUniswapLive(request, {
       apiKey,
       estimatedGasUsd: args.config.estimatedGasUsd,
+      slippageBps: args.config.risk.maxSlippageBps,
       fetchImpl: args.fetchImpl,
     });
     trade = args.registry.update(args.opportunity.id, { state: "quoted", at });

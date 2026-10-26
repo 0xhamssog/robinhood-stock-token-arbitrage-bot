@@ -147,6 +147,8 @@ export async function quoteUniswapLive(
   args: {
     apiKey: string;
     estimatedGasUsd: number;
+    /** Slippage tolerance sent to the Trading API, in bps (MAX_SLIPPAGE_BPS). Defaults to 50. */
+    slippageBps?: number;
     fetchImpl?: typeof fetch;
   },
 ): Promise<DexQuote> {
@@ -194,7 +196,7 @@ export async function quoteUniswapLive(
       tokenOutChainId: String(ROBINHOOD_CHAIN_ID),
       amount,
       type: "EXACT_INPUT",
-      slippageTolerance: 0.5,
+      slippageTolerance: (args.slippageBps ?? 50) / 100,
       routingPreference: "BEST_PRICE",
     }),
   });
@@ -304,6 +306,7 @@ export function createUniswapAdapter(
         {
           apiKey: config.uniswapApiKey!,
           estimatedGasUsd: config.estimatedGasUsd,
+          slippageBps: config.risk.maxSlippageBps,
           fetchImpl,
         },
       ),
